@@ -1,0 +1,150 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Admin users
+model Admin {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  name      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Tournament configuration
+model Tournament {
+  id                String    @id @default(cuid())
+  name              String
+  status            String    @default("active")
+  startDate         DateTime
+  endDate           DateTime?
+  minGamesRequired  Int       @default(20)
+  maxGamesCounted   Int       @default(50)
+  
+  baseWinPoints     Int       @default(15)
+  baseLossPoints    Int       @default(-10)
+  kdaBonusMax       Int       @default(10)
+  mvpBonus          Int       @default(5)
+  
+  autoUpdateEnabled Boolean   @default(true)
+  updateFrequency   Int       @default(30)
+  lastUpdateAt      DateTime?
+  
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  
+  players           Player[]
+  enabledHeroes     EnabledHero[]
+}
+
+// Enabled heroes for tournament
+model EnabledHero {
+  id           String     @id @default(cuid())
+  tournamentId String
+  heroId       Int
+  heroName     String
+  maxPlayers   Int?
+  enabled      Boolean    @default(true)
+  
+  tournament   Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  
+  @@unique([tournamentId, heroId])
+}
+
+// Registered players
+model Player {
+  id                    String    @id @default(cuid())
+  tournamentId          String
+  
+  roleId                BigInt
+  zoneId                Int
+  playerName            String
+  
+  heroId                Int
+  heroName              String
+  
+  jwtToken              String?   @db.Text
+  jwtExpiresAt          DateTime?
+  
+  registrationDate      DateTime  @default(now())
+  baselineTotalMatches  Int       @default(0)
+  seasonIdAtRegistration Int
+  
+  currentTotalMatches   Int       @default(0)
+  gamesSinceRegistration Int      @default(0)
+  
+  totalWins             Int       @default(0)
+  totalLosses           Int       @default(0)
+  winRate               Float     @default(0)
+  avgKda                Float     @default(0)
+  avgScore              Float     @default(0)
+  mvpCount              Int       @default(0)
+  totalPoints           Float     @default(0)
+  rankPosition          Int?
+  
+  status                String    @default("active")
+  lastUpdated           DateTime  @default(now())
+  
+  tournament            Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  matches               Match[]
+  
+  @@unique([tournamentId, roleId, zoneId])
+  @@index([tournamentId, totalPoints])
+  @@index([tournamentId, heroId])
+}
+
+// Individual match records
+model Match {
+  id          String   @id @default(cuid())
+  playerId    String
+  
+  matchId     String
+  seasonId    Int
+  playedAt    DateTime
+  
+  heroId      Int
+  heroName    String
+  kills       Int
+  deaths      Int
+  assists     Int
+  kda         Float
+  score       Float
+  mvp         Boolean  @default(false)
+  win         Boolean
+  
+  pointsGained Float
+  
+  player      Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  
+  @@unique([playerId, matchId])
+  @@index([playerId, playedAt])
+}
+
+// System logs
+model SystemLog {
+  id        String   @id @default(cuid())
+  type      String
+  message   String   @db.Text
+  details   Json?
+  createdAt DateTime @default(now())
+  
+  @@index([createdAt])
+}
+
+// Announcements
+model Announcement {
+  id          String   @id @default(cuid())
+  title       String
+  message     String   @db.Text
+  type        String   @default("info")
+  targetAll   Boolean  @default(true)
+  targetHeroId Int?
+  createdAt   DateTime @default(now())
+  expiresAt   DateTime?
+}
